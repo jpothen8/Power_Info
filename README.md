@@ -110,8 +110,9 @@ Quit from the dropdown menu or Ctrl-C in the terminal.
 ./uninstall_launch_agent.sh   # removes it
 ```
 
-This installs `com.jpothen.powermonitor.plist` as a per-user
-LaunchAgent (`~/Library/LaunchAgents`). `RunAtLoad` is on;
+This generates a `com.jpothen.powermonitor.plist` (with your repo's
+absolute path baked in) and installs it as a per-user LaunchAgent
+(`~/Library/LaunchAgents`). `RunAtLoad` is on;
 `KeepAlive` is off, so quitting it from the menu doesn't respawn it —
 it'll come back at your next login. Logs go to `logs/`.
 
@@ -181,8 +182,9 @@ big-endian) — confirmed against live hardware reads in this session.
   binary or Swift helper needed)
 - `test_parser.py`, `test_smc.py` — tests
 - `fixtures/live_sample.txt` — real `ioreg` capture used as a fixture
-- `com.jpothen.powermonitor.plist`, `install_launch_agent.sh`,
-  `uninstall_launch_agent.sh` — launch-at-login support
+- `install_launch_agent.sh`, `uninstall_launch_agent.sh` —
+  launch-at-login support; the LaunchAgent plist is generated on
+  install (not checked in, since it embeds an absolute path)
 
 ## Notes
 
