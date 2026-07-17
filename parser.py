@@ -111,8 +111,6 @@ class PowerReading:
     usb_out_w: float = 0.0  # power delivered out of USB ports, 0 if none
     usb_ports: list[float] = field(default_factory=list)  # per-port watts
     soc_percent: int | None = None
-    soc_percent_precise: float | None = None  # BRSC/B0RM-derived, one decimal
-    raw_max_capacity_mah: int | None = None  # AppleRawMaxCapacity, slow-changing
     voltage_v: float | None = None
     adapter_name: str | None = None
     adapter_watts: int | None = None
@@ -168,10 +166,6 @@ def parse_ioreg(text: str) -> PowerReading:
     r.soc_percent = _get_int(battery_data, "StateOfCharge")
     if r.soc_percent is None:
         r.soc_percent = _get_int(text, "CurrentCapacity")
-    # Full-charge capacity drifts over hours/days as the gauge relearns it,
-    # never within a poll cycle, so an ioreg-cached read is fine here even
-    # though it's paired with a live SMC numerator in apply_smc_overlay.
-    r.raw_max_capacity_mah = _get_int(text, "AppleRawMaxCapacity")
 
     adapter = _find_block(text, "AdapterDetails")
     if adapter is None:
@@ -216,15 +210,7 @@ def apply_smc_overlay(r: PowerReading, smc_values: dict[str, float | None]) -> P
     soc_percent is replaced with BRSC when present: it's the pack's own
     fuel-gauge chip reporting its state-of-charge live via SMC, versus
     ioreg's StateOfCharge/CurrentCapacity which sit in the same stale
-    cache as the wattage fields above. soc_percent_precise is a derived
-    one-decimal figure (B0RM live remaining mAh / raw_max_capacity_mah)
-    — BRSC itself is a single byte on this hardware with no fractional
-    part, and B0FC (the would-be live full-charge-capacity key) reads
-    back inconsistent garbage on Apple Silicon, so the slow-changing
-    ioreg max-capacity figure is used as the denominator instead. This
-    ratio is a separate computation from BRSC's own rounding and can
-    occasionally disagree with it by about a point — it is not BRSC
-    itself at higher precision.
+    cache as the wattage fields above.
 
     Missing/None entries in `smc_values` leave the corresponding ioreg
     value in place, so a partial or failed SMC read degrades gracefully.
@@ -232,12 +218,9 @@ def apply_smc_overlay(r: PowerReading, smc_values: dict[str, float | None]) -> P
     pstr = smc_values.get("PSTR")
     pdtr = smc_values.get("PDTR")
     brsc = smc_values.get("BRSC")
-    b0rm = smc_values.get("B0RM")
     out = replace(r)
     if brsc is not None:
         out.soc_percent = int(brsc)
-    if b0rm is not None and out.raw_max_capacity_mah:
-        out.soc_percent_precise = b0rm / out.raw_max_capacity_mah * 100
     if pstr is not None:
         out.system_w = pstr
     if pdtr is not None:

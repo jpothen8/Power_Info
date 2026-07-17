@@ -248,17 +248,12 @@ class SMCReader:
         return out
 
     def read_battery_keys(self) -> dict[str, float | None]:
-        """BRSC (state-of-charge %, reported live by the battery pack's own
-        fuel-gauge chip) and B0RM (remaining capacity, mAh) — used in place
-        of ioreg's BatteryData cache. Deliberately excludes B0FC ("full
-        charge capacity"): confirmed empirically to read back inconsistent
-        garbage on Apple Silicon (two consecutive reads returned 6689 and
-        63264 mAh on a pack whose actual full-charge capacity is ~8.4Ah),
-        so callers should pair B0RM with ioreg's AppleRawMaxCapacity
-        instead. Individual key failures degrade to None rather than
+        """BRSC (state-of-charge %), reported live by the battery pack's
+        own fuel-gauge chip via SMC — used in place of ioreg's BatteryData
+        cache. Individual key failures degrade to None rather than
         raising."""
         out = {}
-        for key in ("BRSC", "B0RM"):
+        for key in ("BRSC",):
             try:
                 out[key] = self.read(key)
             except OSError:

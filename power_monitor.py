@@ -557,9 +557,7 @@ class PowerMonitorApp(rumps.App):
             self._refresh_text_fallback(r)
 
         info = []
-        if r.soc_percent_precise is not None:
-            info.append(f"{r.soc_percent_precise:.1f}%")
-        elif r.soc_percent is not None:
+        if r.soc_percent is not None:
             info.append(f"{r.soc_percent}%")
         if r.voltage_v is not None:
             info.append(f"{r.voltage_v:.2f}V")
