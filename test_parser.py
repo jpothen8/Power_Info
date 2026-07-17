@@ -35,6 +35,7 @@ SAMPLE_1 = (
     '      "Amperage" = 172\n'
     '      "ExternalConnected" = Yes\n'
     '      "AppleRawBatteryVoltage" = 13130\n'
+    '      "AppleRawMaxCapacity" = 8466\n'
     '      "BatteryData" = {"CellVoltage"=(4377,4377,4376),"StateOfCharge"=95,'
     '"Voltage"=13126,"DesignCapacity"=8579}\n'
     '      "AdapterDetails" = {"Watts"=140,"Description"="pd charger",'
@@ -95,6 +96,7 @@ def test_sample_1_trickle_charge():
     assert r.usb_out_w == 0.0
     assert r.usb_ports == []
     assert r.soc_percent == 95
+    assert r.raw_max_capacity_mah == 8466
     assert r.voltage_v == 13.13
     assert r.adapter_name == "140W USB-C Power Adapter"
     assert r.adapter_watts == 140  # scoped: not confused with USB-out mW
@@ -185,6 +187,31 @@ def test_smc_overlay_partial_data_degrades_gracefully():
     assert empty.system_w == r.system_w
     assert empty.input_w == r.input_w
     assert empty.battery_w == r.battery_w
+    assert empty.soc_percent == r.soc_percent  # no BRSC, ioreg value kept
+    assert empty.soc_percent_precise is None  # no B0RM, nothing to derive
+
+
+def test_smc_overlay_brsc_replaces_soc_percent():
+    # StateOfCharge (ioreg) and BRSC (SMC) are independent live reads of
+    # the same fuel-gauge chip and routinely differ by ~1 point; BRSC wins.
+    r = parse_ioreg(SAMPLE_1)  # ioreg soc_percent == 95
+    out = apply_smc_overlay(r, {"BRSC": 91.0})
+    assert out.soc_percent == 91
+
+
+def test_smc_overlay_derives_precise_percent_from_b0rm():
+    r = parse_ioreg(SAMPLE_1)  # raw_max_capacity_mah == 8466
+    out = apply_smc_overlay(r, {"B0RM": 7624.0})
+    assert out.soc_percent_precise is not None
+    assert abs(out.soc_percent_precise - 90.05) < 0.01
+
+
+def test_smc_overlay_precise_percent_needs_max_capacity():
+    # SAMPLE_2 has no top-level AppleRawMaxCapacity, so there's no
+    # denominator to pair with a live B0RM numerator.
+    r = parse_ioreg(SAMPLE_2)
+    out = apply_smc_overlay(r, {"B0RM": 7000.0})
+    assert out.soc_percent_precise is None
 
 
 def test_smc_overlay_does_not_mutate_input():

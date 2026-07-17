@@ -533,7 +533,9 @@ class PowerMonitorApp(rumps.App):
         r = self._base_reading
         if self._smc is not None:
             try:
-                r = apply_smc_overlay(r, self._smc.read_power_keys())
+                smc_values = self._smc.read_power_keys()
+                smc_values.update(self._smc.read_battery_keys())
+                r = apply_smc_overlay(r, smc_values)
             except OSError:
                 self._smc = None  # disable for the rest of the session
 
@@ -555,7 +557,9 @@ class PowerMonitorApp(rumps.App):
             self._refresh_text_fallback(r)
 
         info = []
-        if r.soc_percent is not None:
+        if r.soc_percent_precise is not None:
+            info.append(f"{r.soc_percent_precise:.1f}%")
+        elif r.soc_percent is not None:
             info.append(f"{r.soc_percent}%")
         if r.voltage_v is not None:
             info.append(f"{r.voltage_v:.2f}V")
